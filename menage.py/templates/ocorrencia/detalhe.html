@@ -1,0 +1,153 @@
+# templates/ocorrencias/detalhe.html
+{% extends 'base.html' %}
+
+{% block title %}{{ ocorrencia.protocolo }} - Sistema Conselho Tutelar{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4>{{ ocorrencia.protocolo }} - {{ ocorrencia.nome_crianca }}</h4>
+                <div>
+                    {% if ocorrencia.status == 'registrada' %}
+                    <span class="badge bg-secondary">{{ ocorrencia.get_status_display }}</span>
+                    {% elif ocorrencia.status == 'andamento' %}
+                    <span class="badge bg-primary">{{ ocorrencia.get_status_display }}</span>
+                    {% elif ocorrencia.status == 'resolvida' %}
+                    <span class="badge bg-success">{{ ocorrencia.get_status_display }}</span>
+                    {% else %}
+                    <span class="badge bg-warning">{{ ocorrencia.get_status_display }}</span>
+                    {% endif %}
+                    
+                    {% if ocorrencia.prioridade == 'emergencial' %}
+                    <span class="badge bg-danger ms-1">EMERGENCIAL</span>
+                    {% elif ocorrencia.prioridade == 'alta' %}
+                    <span class="badge bg-warning ms-1">ALTA PRIORIDADE</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6>Dados da Ocorrência</h6>
+                        <p><strong>Data da Ocorrência:</strong> {{ ocorrencia.data_ocorrencia|date:"d/m/Y H:i" }}</p>
+                        <p><strong>Data de Registro:</strong> {{ ocorrencia.data_registro|date:"d/m/Y H:i" }}</p>
+                        <p><strong>Registrado por:</strong> {{ ocorrencia.registrado_por.get_full_name }}</p>
+                        <p><strong>Endereço:</strong> {{ ocorrencia.endereco }}{% if ocorrencia.complemento %}, {{ ocorrencia.complemento }}{% endif %}</p>
+                        <p><strong>Bairro:</strong> {{ ocorrencia.bairro.nome }}</p>
+                        <p><strong>CEP:</strong> {{ ocorrencia.cep }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Dados da Criança/Adolescente</h6>
+                        <p><strong>Nome:</strong> {{ ocorrencia.nome_crianca }}</p>
+                        <p><strong>Idade:</strong> {{ ocorrencia.idade_crianca }} anos</p>
+                        {% if ocorrencia.cpf_crianca %}
+                        <p><strong>CPF:</strong> {{ ocorrencia.cpf_crianca }}</p>
+                        {% endif %}
+                        {% if ocorrencia.responsavel_legal %}
+                        <p><strong>Responsável Legal:</strong> {{ ocorrencia.responsavel_legal }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6>Tipos de Violação</h6>
+                        {% for tipo in ocorrencia.tipos_violacao.all %}
+                        <span class="badge bg-danger me-1">{{ tipo.nome }}</span>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Denunciante</h6>
+                        {% if ocorrencia.anonimo %}
+                        <p class="text-muted">Denúncia anônima</p>
+                        {% else %}
+                        {% if ocorrencia.nome_denunciante %}
+                        <p><strong>Nome:</strong> {{ ocorrencia.nome_denunciante }}</p>
+                        {% endif %}
+                        {% if ocorrencia.telefone_denunciante %}
+                        <p><strong>Telefone:</strong> {{ ocorrencia.telefone_denunciante }}</p>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h6>Descrição da Ocorrência</h6>
+                    <p class="text-justify">{{ ocorrencia.descricao|linebreaksbr }}</p>
+                </div>
+                
+                {% if ocorrencia.conselheira_responsavel %}
+                <div class="mb-4">
+                    <h6>Responsável pelo Caso</h6>
+                    <p>{{ ocorrencia.conselheira_responsavel.get_full_name }}</p>
+                    {% if ocorrencia.data_atribuicao %}
+                    <p><small class="text-muted">Atribuído em: {{ ocorrencia.data_atribuicao|date:"d/m/Y H:i" }}</small></p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'ocorrencias:lista' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </a>
+                {% if user.perfil == 'admin' or user.perfil == 'coordenador' or ocorrencia.conselheira_responsavel == user %}
+                <a href="{% url 'ocorrencias:editar' ocorrencia.pk %}" class="btn btn-primary">
+                    <i class="fas fa-edit"></i> Editar
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Histórico -->
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-history"></i> Histórico de Alterações</h6>
+            </div>
+            <div class="card-body">
+                {% if historico %}
+                    {% for item in historico %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <small class="text-muted">{{ item.data_alteracao|date:"d/m/Y H:i" }}</small>
+                        <p class="mb-1"><strong>{{ item.usuario.get_full_name }}</strong></p>
+                        <p class="mb-1 small">Alterou: {{ item.campo_alterado }}</p>
+                        {% if item.observacoes %}
+                        <p class="mb-0 small text-muted">{{ item.observacoes }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">Nenhuma alteração registrada.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Anexos -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="fas fa-paperclip"></i> Anexos</h6>
+            </div>
+            <div class="card-body">
+                {% if ocorrencia.anexos.all %}
+                    {% for anexo in ocorrencia.anexos.all %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <a href="{{ anexo.arquivo.url }}" target="_blank">{{ anexo.nome_arquivo }}</a>
+                            {% if anexo.descricao %}
+                            <small class="d-block text-muted">{{ anexo.descricao }}</small>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">{{ anexo.enviado_em|date:"d/m/Y" }}</small>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">Nenhum anexo.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

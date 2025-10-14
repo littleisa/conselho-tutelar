@@ -1,0 +1,211 @@
+# templates/ocorrencias/nova.html
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Nova Ocorrência - Sistema Conselho Tutelar{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-plus"></i> Nova Ocorrência</h4>
+            </div>
+            <div class="card-body">
+                {% if confirmar_duplicata %}
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Possíveis Ocorrências Similares</h5>
+                    <p>Encontramos as seguintes ocorrências que podem estar relacionadas:</p>
+                    
+                    {% for similar in ocorrencias_similares %}
+                    <div class="card mb-2">
+                        <div class="card-body">
+                            <h6>{{ similar.protocolo }} - {{ similar.nome_crianca }}</h6>
+                            <p class="text-muted mb-1">{{ similar.endereco }}, {{ similar.bairro.nome }}</p>
+                            <small class="text-muted">{{ similar.data_registro|date:"d/m/Y H:i" }} - {{ similar.get_status_display }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <p>Deseja continuar com o registro desta nova ocorrência?</p>
+                </div>
+                {% endif %}
+                
+                <form method="post" id="formOcorrencia">
+                    {% csrf_token %}
+                    
+                    {% if confirmar_duplicata %}
+                    <input type="hidden" name="confirmar_duplicata" value="1">
+                    {% endif %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Dados da Ocorrência</h5>
+                            {{ form.data_ocorrencia|as_crispy_field }}
+                            {{ form.endereco|as_crispy_field }}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    {{ form.bairro|as_crispy_field }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.cep|as_crispy_field }}
+                                </div>
+                            </div>
+                            {{ form.complemento|as_crispy_field }}
+                            {{ form.prioridade|as_crispy_field }}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5>Dados da Criança/Adolescente</h5>
+                            {{ form.nome_crianca|as_crispy_field }}
+                            {{ form.idade_crianca|as_crispy_field }}
+                            {{ form.cpf_crianca|as_crispy_field }}
+                            {{ form.responsavel_legal|as_crispy_field }}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Tipos de Violação</h5>
+                            {{ form.tipos_violacao|as_crispy_field }}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5>Dados do Denunciante</h5>
+                            <div class="form-check mb-3">
+                                {{ form.anonimo }}
+                                <label class="form-check-label" for="{{ form.anonimo.id_for_label }}">
+                                    Denúncia Anônima
+                                </label>
+                            </div>
+                            <div id="dadosDenunciante">
+                                {{ form.nome_denunciante|as_crispy_field }}
+                                {{ form.telefone_denunciante|as_crispy_field }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <h5>Descrição da Ocorrência</h5>
+                            {{ form.descricao|as_crispy_field }}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'ocorrencias:lista' %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left"></i> Voltar
+                                </a>
+                                
+                                {% if confirmar_duplicata %}
+                                <div>
+                                    <a href="{% url 'ocorrencias:nova' %}" class="btn btn-warning me-2">
+                                        <i class="fas fa-times"></i> Cancelar
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-check"></i> Confirmar Registro
+                                    </button>
+                                </div>
+                                {% else %}
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Registrar Ocorrência
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Controlar campos do denunciante baseado no checkbox "anonimo"
+document.getElementById('id_anonimo').addEventListener('change', function() {
+    const dadosDenunciante = document.getElementById('dadosDenunciante');
+    if (this.checked) {
+        dadosDenunciante.style.display = 'none';
+        document.getElementById('id_nome_denunciante').value = '';
+        document.getElementById('id_telefone_denunciante').value = '';
+    } else {
+        dadosDenunciante.style.display = 'block';
+    }
+});
+
+// Verificar duplicatas ao alterar endereço, bairro ou nome da criança
+let timeoutId;
+
+function verificarDuplicatas() {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(function() {
+        const endereco = document.getElementById('id_endereco').value;
+        const bairroId = document.getElementById('id_bairro').value;
+        const nomeCrianca = document.getElementById('id_nome_crianca').value;
+        
+        if (endereco && bairroId && nomeCrianca) {
+            fetch('{% url "ocorrencias:verificar_duplicatas" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    endereco: endereco,
+                    bairro_id: bairroId,
+                    nome_crianca: nomeCrianca
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.similares && data.similares.length > 0) {
+                    let alertHtml = '<div class="alert alert-warning alert-dismissible fade show" role="alert">';
+                    alertHtml += '<h6><i class="fas fa-exclamation-triangle"></i> Possíveis ocorrências similares encontradas:</h6>';
+                    
+                    data.similares.forEach(function(similar) {
+                        alertHtml += `<p class="mb-1"><strong>${similar.protocolo}</strong> - ${similar.nome_crianca}<br>`;
+                        alertHtml += `<small class="text-muted">${similar.endereco} - ${similar.data_registro}</small></p>`;
+                    });
+                    
+                    alertHtml += '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                    alertHtml += '</div>';
+                    
+                    // Remover alertas anteriores
+                    const alertsAnteriores = document.querySelectorAll('.alert-warning:not([class*="confirmar"])');
+                    alertsAnteriores.forEach(alert => alert.remove());
+                    
+                    // Adicionar novo alerta
+                    const form = document.getElementById('formOcorrencia');
+                    form.insertAdjacentHTML('afterbegin', alertHtml);
+                }
+            });
+        }
+    }, 1000);
+}
+
+// Adicionar event listeners
+document.getElementById('id_endereco').addEventListener('input', verificarDuplicatas);
+document.getElementById('id_bairro').addEventListener('change', verificarDuplicatas);
+document.getElementById('id_nome_crianca').addEventListener('input', verificarDuplicatas);
+
+// Inicializar estado dos campos do denunciante
+document.addEventListener('DOMContentLoaded', function() {
+    const anonimo = document.getElementById('id_anonimo');
+    if (anonimo.checked) {
+        document.getElementById('dadosDenunciante').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}
+
+

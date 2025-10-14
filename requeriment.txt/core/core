@@ -1,0 +1,48 @@
+# core/models.py
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+from django.core.validators import RegexValidator
+import uuid
+
+class User(AbstractUser):
+    PERFIL_CHOICES = [
+        ('admin', 'Administrador'),
+        ('coordenador', 'Coordenador/Supervisor'),
+        ('conselheira', 'Conselheira Tutelar'),
+        ('atendente', 'Atendente/Recepção'),
+    ]
+    
+    perfil = models.CharField(max_length=20, choices=PERFIL_CHOICES, default='atendente')
+    matricula = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    telefone = models.CharField(max_length=15, blank=True)
+    especialidades = models.TextField(blank=True, help_text="Especialidades/áreas de atuação")
+    ativo = models.BooleanField(default=True)
+    carga_trabalho_atual = models.IntegerField(default=0)
+
+class Bairro(models.Model):
+    nome = models.CharField(max_length=100)
+    cidade = models.CharField(max_length=100, default='Campo Grande')
+    estado = models.CharField(max_length=2, default='MS')
+    ceps = models.TextField(help_text="CEPs atendidos, separados por vírgula")
+    ativo = models.BooleanField(default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['nome']
+        
+    def __str__(self):
+        return self.nome
+
+class TipoViolacao(models.Model):
+    nome = models.CharField(max_length=100)
+    descricao = models.TextField()
+    codigo = models.CharField(max_length=10, unique=True)
+    ativo = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ['nome']
+        verbose_name_plural = "Tipos de Violação"
+    
+    def __str__(self):
+        return f"{self.codigo} - {self.nome}"
